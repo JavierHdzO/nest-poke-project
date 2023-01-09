@@ -1,4 +1,4 @@
-import { Model, Types } from 'mongoose';
+import { Model, Query, Types } from 'mongoose';
 import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Pokemon, PokemonDocument} from './entities/pokemon.entity';
@@ -13,29 +13,30 @@ export class PokemonService {
 
   async create(createPokemonDto: CreatePokemonDto):Promise<Pokemon> {
     try{
-      const pokemon = await this.pokemonModel.create( createPokemonDto );
+      const pokemon = new this.pokemonModel( createPokemonDto );
+      await pokemon.save();
       return pokemon;
     } catch (error){
       
-      if(error.code === 11000){
-        throw new BadRequestException(`Pokemon exist, ${ JSON.stringify( error.keyValue ) }`);
-      }
-      console.log(error);
-      throw new InternalServerErrorException();
+      this.handleExceptions(error);
     } 
   }
 
   async findAll(): Promise<Pokemon[]> {
-    const pokemons: Pokemon[] =  await this.pokemonModel.find();
-    return pokemons;
+    try {
+      const pokemons: Pokemon[] =  await this.pokemonModel.find();
+      return pokemons;
+    } catch (error) {
+      this.handleExceptions(error);
+    }
   }
 
-  async findOne(id: string): Promise<Pokemon> {
-    let pokemon: Pokemon;
+  async findOne(id: string) {
+    let pokemon;
+
     try {
       if( !isNaN(Number(id)) ){
         pokemon = await this.pokemonModel.findOne({ no: id });
-
       }else if(Types.ObjectId.isValid(id)){
         pokemon = await this.pokemonModel.findById(id);
 
@@ -46,22 +47,47 @@ export class PokemonService {
       if(!pokemon) throw new NotFoundException();
       
       return pokemon;
-
-    } catch (error) {
-      if(error.response.message === 'Not Found'){
-        throw new NotFoundException();
-      }
-      console.log(error);
-      throw new InternalServerErrorException();
+    } 
+    catch (error) {
+      this.handleExceptions(error);
     }
     
   }
 
-  update(id: string, updatePokemonDto: UpdatePokemonDto) {
-    return `This action updates a #${id} pokemon`;
+  async update(id: string, updatePokemonDto: UpdatePokemonDto): Promise<Pokemon> {
+    try {
+      const pokemon =  await this.findOne( id );
+
+      await pokemon.updateOne( updatePokemonDto, { new: true } );
+    
+      return { ...pokemon.toJSON(), ...updatePokemonDto };
+  
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} pokemon`;
+  async remove(id: string) {
+    
+    try {
+      const pokemon = await this.pokemonModel.findByIdAndDelete( id );
+
+      if(!pokemon) throw new BadRequestException();
+
+      return pokemon;
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+
+  }
+
+
+  private handleExceptions( error: any ){
+    console.log(error);
+    if(error.status === 400) throw new BadRequestException('Pokemon with id was not found');
+    if( error.code === 11000 ) throw new BadRequestException();
+    
+    throw new InternalServerErrorException();
   }
 }
