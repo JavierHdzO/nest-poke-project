@@ -1,5 +1,5 @@
-import { Observable } from 'rxjs';
+import { AxiosResponse } from 'axios';
 
 export interface httpAdapter {
-    get<T>(url: string): Promise<T> | Observable<Promise<T>>
+    get<T>(url: string): Promise<T> | Promise<AxiosResponse<T> | T>
 }

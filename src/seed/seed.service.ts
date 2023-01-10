@@ -1,11 +1,8 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { map } from 'rxjs';
+import { NestAxiosAdapter } from 'src/common/adapters/nest-axios.adapter';
 import { Pokemon } from 'src/pokemon/entities/pokemon.entity';
-import { PokemonInterface } from 'src/pokemon/interfaces/pokemon.interface';
-// import { PokemonService } from 'src/pokemon/pokemon.service'; Option 2
 import { PokeResponse } from './interfaces/poke-response.interface';
 
 
@@ -15,45 +12,28 @@ export class SeedService {
   constructor(
     @InjectModel( Pokemon.name )
     private readonly pokemonModel: Model<Pokemon>,
-    private readonly httpService: HttpService,
-    // private readonly pokemonService: PokemonService OPTION 1
+    private readonly httpAdapter: NestAxiosAdapter
     ) { }
 
-  execute() {
+  async execute() {
     try {
-      const result = this.httpService.get<PokeResponse>('https://pokeapi.co/api/v2/pokemon?limit=100', {
-        headers: {
-          'Content-Encoding': 'gzip',
-          'Accept-Encoding': 'gzip'
-        }
-      }).pipe(map(async ({ data }) => {
-        //option 1
-        const pokemonToInsert: PokemonInterface[] = [];
+      //'https://pokeapi.co/api/v2/pokemon?limit=100'
+      
+      const { results } = await this.httpAdapter.get<PokeResponse>('https://pokeapi.co/api/v2/pokemon?limit=100');
+      
+      const pokemonToInsert = [];
 
-        /* OPTION 2
-        const promiseArray = [];
-        */
-        data.results.forEach(async ({ name, url }) => {
-          const fragment = url.split('/');
-          const no: number = Number(fragment[fragment.length - 2]);
-          // Option 1
-          pokemonToInsert.push({ name, no });
+      results.forEach( ({ name, url  }) => {
+        const segments = url.split('/');
+        const no = segments[ segments.length - 2 ];
 
-          /* OPTION 2
-          promiseArray.push(this.pokemonService.create({ name, no }));
-          */
+        pokemonToInsert.push({name, no});
+      });
 
-        });
-        // Option 1
-        await this.pokemonModel.insertMany(pokemonToInsert);
+      await this.pokemonModel.insertMany( pokemonToInsert );
+      
+      return 'Seed has been executed successfully';
 
-        /* OPTION 2
-        await Promise.all(promiseArray);
-        */
-        return 'Seed has been executed successfully';
-      }));
-
-      return result;
     } catch (error) {
       console.log(error);
       throw new InternalServerErrorException();

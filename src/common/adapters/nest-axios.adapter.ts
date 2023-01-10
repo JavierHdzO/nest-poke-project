@@ -1,33 +1,33 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { Observable, map } from 'rxjs';
+import { AxiosError, AxiosResponse } from 'axios';
+import { catchError, firstValueFrom } from 'rxjs';
 import { httpAdapter } from '../interfaces/adapter.interface';
 
 @Injectable()
-export class NestAxiosAdapter implements httpAdapter{
+export class NestAxiosAdapter implements httpAdapter {
+  constructor(private readonly httpService: HttpService) {}
 
-    constructor(
-        private readonly httpService: HttpService
-    ){}
+  async get<T>(url: string): Promise<T> {
+  
+      const { data } = await firstValueFrom(
+        this.httpService
+          .get<T>(url, {
+            headers: {
+              'Content-Encoding': 'gzip',
+              'Accept-Encoding': 'gzip',
+            },
+          })
+          .pipe(
+            catchError((error: AxiosError) => {
+              console.log(error);
+              throw new InternalServerErrorException();
+            }),
+          ),
+      );
 
-    get<T>( url: string): Observable<T>{
-        
-        try {
-            const result = this.httpService.get<T>( url , {
-                headers: {
-                    'Content-Encoding': 'gzip',
-                    'Accept-Encoding': 'gzip'
-                }
-            }).pipe( map(({data}) => {
-                
-                return data;
-            }));
+      return data;
+
     
-            return result;
-        } catch (error) {
-            console.log(error);
-
-            throw new InternalServerErrorException('Report the problem to the admin');
-        }
-    }
+  }
 }
