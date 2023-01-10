@@ -40,3 +40,8 @@ $ yarn run test:e2e
 $ yarn run test:cov
 ```
 
+## Execute Database Seed
+```bash
+  http://localhost:3000/api/seed
+```
+
