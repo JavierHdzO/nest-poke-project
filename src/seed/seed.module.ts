@@ -5,7 +5,7 @@ import { HttpModule } from '@nestjs/axios';
 import { PokemonModule } from 'src/pokemon/pokemon.module';
 
 @Module({
-  imports: [HttpModule, PokemonModule],
+  imports: [PokemonModule, HttpModule ],
   controllers: [SeedController],
   providers: [SeedService]
 })
